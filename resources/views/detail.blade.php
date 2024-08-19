@@ -1,11 +1,13 @@
 @php
     $metadata = json_decode(html_entity_decode($payment['udf1']), true);
-    $address = app(\Botble\Ecommerce\Repositories\Interfaces\OrderAddressInterface::class)->getFirstBy([
-        'order_id' => Arr::first($metadata['order_id'] ?? []),
-    ]);
+    if (is_plugin_active('ecommerce')) {
+        $address = app(\Botble\Ecommerce\Repositories\Interfaces\OrderAddressInterface::class)->getFirstBy([
+            'order_id' => Arr::first($metadata['order_id'] ?? []),
+        ]);
+    }
 @endphp
 
-<div class="alert alert-success" role="alert">
+<div class="alert alert-success mt-4" role="alert">
     <p class="mb-2">{{ trans('plugins/payment::payment.payment_id') }}: <strong>{{ $payment['mihpayid'] }}</strong></p>
 
     <p class="mb-2">
@@ -15,17 +17,19 @@
         </strong>
     </p>
 
-    <p class="mb-2">{{ trans('plugins/payment::payment.payer_name') }}: {{ $address->name }}</p>
-    <p class="mb-2">{{ trans('plugins/payment::payment.email') }}: {{ $address->email }}</p>
+    @if(is_plugin_active('ecommerce') && $address)
+        <p class="mb-2">{{ trans('plugins/payment::payment.payer_name') }}: {{ $address->name }}</p>
+        <p class="mb-2">{{ trans('plugins/payment::payment.email') }}: {{ $address->email }}</p>
 
-    @if ($address->phone)
-        <p class="mb-2">{{ trans('plugins/payment::payment.phone')  }}: {{ $address->phone }}</p>
+        @if ($address->phone)
+            <p class="mb-2">{{ trans('plugins/payment::payment.phone')  }}: {{ $address->phone }}</p>
+        @endif
+
+        <p class="mb-0">
+            {{ trans('plugins/payment::payment.shipping_address') }}:
+            {{ $address->name }}, {{ $address->city }}, {{ $address->state }}, {{ $address->country }} {{ $address->zipcode }}
+        </p>
     @endif
-
-    <p class="mb-0">
-        {{ trans('plugins/payment::payment.shipping_address') }}:
-        {{ $address->name }}, {{ $address->city }}, {{ $address->state }}, {{ $address->country }} {{ $address->zipcode }}
-    </p>
 </div>
 
 @if (isset($payment['refunds']))

@@ -8,5 +8,5 @@
     "version": "1.0.0",
     "description": "PayU payment gateway integration",
     "minimum_core_version": "7.0.0",
-    "require": ["botble/ecommerce", "botble/payment"]
+    "require": ["botble/payment"]
 }

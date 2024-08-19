@@ -32,6 +32,7 @@ class PayUController extends BaseController
 
         do_action(PAYMENT_ACTION_PAYMENT_PROCESSED, [
             'order_id' => $metadata['order_id'],
+            'currency' => $metadata['currency'],
             'amount' => $request->input('amount'),
             'charge_id' => $request->input('mihpayid'),
             'payment_channel' => PayUServiceProvider::MODULE_NAME,
@@ -41,8 +42,14 @@ class PayUController extends BaseController
             'payment_type' => 'direct',
         ], $request);
 
+        $nextUrl = PaymentHelper::getRedirectURL($metadata['token']);
+
+        if (is_plugin_active('job-board')) {
+            $nextUrl = $nextUrl . '?charge_id=' . $request->input('mihpayid');
+        }
+
         return $response
-            ->setNextUrl(PaymentHelper::getRedirectURL($metadata['token']))
+            ->setNextUrl($nextUrl)
             ->setMessage(__('Checkout successfully!'));
     }
 

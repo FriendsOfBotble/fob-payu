@@ -101,9 +101,10 @@ class HookServiceProvider extends ServiceProvider
                     'city' => $paymentData['address']['city'],
                     'state' => $paymentData['address']['state'],
                     'country' => $paymentData['address']['country'],
-                    'zipcode' => $paymentData['address']['zip_code'],
+                    'zipcode' => $paymentData['address']['zip_code'] ?? $paymentData['address']['zip'],
                     'udf1' => json_encode([
                         'order_id' => $paymentData['order_id'],
+                        'currency' => $paymentData['currency'],
                         'customer_id' => $paymentData['customer_id'],
                         'customer_type' => addslashes($paymentData['customer_type']),
                         'token' => $paymentData['checkout_token'],
