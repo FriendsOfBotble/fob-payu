@@ -2,6 +2,7 @@
 
 namespace FriendsOfBotble\PayU\Http\Controllers;
 
+use Botble\Hotel\Models\Booking;
 use FriendsOfBotble\PayU\Providers\PayUServiceProvider;
 use FriendsOfBotble\PayU\Services\PayUService;
 use Botble\Base\Http\Controllers\BaseController;
@@ -10,6 +11,7 @@ use Botble\Payment\Enums\PaymentStatusEnum;
 use Botble\Payment\Repositories\Interfaces\PaymentInterface;
 use Botble\Payment\Supports\PaymentHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 class PayUController extends BaseController
 {
@@ -41,6 +43,22 @@ class PayUController extends BaseController
             'customer_type' => $metadata['customer_type'],
             'payment_type' => 'direct',
         ], $request);
+
+        if (is_plugin_active('hotel')) {
+            $booking = Booking::query()
+                ->select('transaction_id')
+                ->find(Arr::first($metadata['order_id']));
+
+            if (! $booking) {
+                return $response
+                    ->setNextUrl(PaymentHelper::getCancelURL())
+                    ->setMessage(__('Checkout failed!'));
+            }
+
+            return $response
+                ->setNextUrl(PaymentHelper::getRedirectURL($booking->transaction_id))
+                ->setMessage(__('Checkout successfully!'));
+        }
 
         $nextUrl = PaymentHelper::getRedirectURL($metadata['token']);
 
