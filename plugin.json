@@ -1,5 +1,5 @@
 {
-    "id": "friendsofbotble/payu",
+    "id": "friendsofbotble/fob-payu",
     "name": "PayU Payment Gateway",
     "namespace": "FriendsOfBotble\\PayU\\",
     "provider": "FriendsOfBotble\\PayU\\Providers\\PayUServiceProvider",
