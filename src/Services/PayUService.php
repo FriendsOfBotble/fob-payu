@@ -138,7 +138,7 @@ class PayUService
             'hash' => $this->getPostServiceHash($command, $vars),
         ], $vars));
 
-        if (! $response->ok()) {
+        if ($response->failed()) {
             return [
                 'error' => false,
                 'message' => $response->reason(),

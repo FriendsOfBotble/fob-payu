@@ -2,22 +2,23 @@
 
 namespace FriendsOfBotble\PayU\Providers;
 
+use Botble\Base\Facades\Html;
+use Botble\Payment\Enums\PaymentMethodEnum;
+use Botble\Payment\Facades\PaymentMethods;
+use Botble\Payment\Models\Payment;
 use FriendsOfBotble\PayU\Services\PayUPaymentService;
 use FriendsOfBotble\PayU\Services\PayUService;
-use Botble\Payment\Enums\PaymentMethodEnum;
-use Botble\Payment\Models\Payment;
-use Html;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use PaymentMethods;
 use Throwable;
 
 class HookServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        add_filter(PAYMENT_METHODS_SETTINGS_PAGE, function (string|null $settings) {
+        add_filter(PAYMENT_METHODS_SETTINGS_PAGE, function (?string $settings) {
             return $settings . view('plugins/payu::settings')->render();
         }, 999);
 
@@ -49,7 +50,7 @@ class HookServiceProvider extends ServiceProvider
             return $value;
         }, 999, 2);
 
-        add_filter(PAYMENT_FILTER_ADDITIONAL_PAYMENT_METHODS, function (string|null $html, array $data): string|null {
+        add_filter(PAYMENT_FILTER_ADDITIONAL_PAYMENT_METHODS, function (?string $html, array $data): ?string {
             if (get_payment_setting('status', PayUServiceProvider::MODULE_NAME)) {
                 $payUService = new PayUService();
 
@@ -69,7 +70,7 @@ class HookServiceProvider extends ServiceProvider
             return $html;
         }, 999, 2);
 
-        add_filter(PAYMENT_FILTER_GET_SERVICE_CLASS, function (string|null $data, string $value): string|null {
+        add_filter(PAYMENT_FILTER_GET_SERVICE_CLASS, function (?string $data, string $value): ?string {
             if ($value === PayUServiceProvider::MODULE_NAME) {
                 $data = PayUPaymentService::class;
             }
@@ -101,7 +102,7 @@ class HookServiceProvider extends ServiceProvider
                     'city' => $paymentData['address']['city'],
                     'state' => $paymentData['address']['state'],
                     'country' => $paymentData['address']['country'],
-                    'zipcode' => $paymentData['address']['zip_code'] ?? $paymentData['address']['zip'],
+                    'zipcode' => Arr::get($paymentData['address'], 'zip_code', Arr::get($paymentData['address'], 'zip')),
                     'udf1' => json_encode([
                         'order_id' => $paymentData['order_id'],
                         'currency' => $paymentData['currency'],

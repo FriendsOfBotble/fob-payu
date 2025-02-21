@@ -9,7 +9,7 @@ users to pay with their preferred payment method.
 
 ### Requirements
 
-* Botble core 7.0.0 or later.
+* Botble core 7.3.0 or later.
 * **Payment** plugins.
 
 ### Install via Admin Panel

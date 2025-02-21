@@ -2,14 +2,14 @@
 
 namespace FriendsOfBotble\PayU\Http\Controllers;
 
-use Botble\Hotel\Models\Booking;
-use FriendsOfBotble\PayU\Providers\PayUServiceProvider;
-use FriendsOfBotble\PayU\Services\PayUService;
 use Botble\Base\Http\Controllers\BaseController;
 use Botble\Base\Http\Responses\BaseHttpResponse;
+use Botble\Hotel\Models\Booking;
 use Botble\Payment\Enums\PaymentStatusEnum;
 use Botble\Payment\Repositories\Interfaces\PaymentInterface;
 use Botble\Payment\Supports\PaymentHelper;
+use FriendsOfBotble\PayU\Providers\PayUServiceProvider;
+use FriendsOfBotble\PayU\Services\PayUService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
@@ -91,21 +91,11 @@ class PayUController extends BaseController
             return;
         }
 
-        switch ($response['data']['status']) {
-            case 'success':
-                $status = PaymentStatusEnum::COMPLETED;
-
-                break;
-
-            case 'failure':
-                $status = PaymentStatusEnum::FAILED;
-
-                break;
-            default:
-                $status = PaymentStatusEnum::PENDING;
-
-                break;
-        }
+        $status = match ($response['data']['status']) {
+            'success' => PaymentStatusEnum::COMPLETED,
+            'failure' => PaymentStatusEnum::FAILED,
+            default => PaymentStatusEnum::PENDING,
+        };
 
         if (! in_array($payment->status, [PaymentStatusEnum::COMPLETED, PaymentStatusEnum::FAILED, $status])) {
             $payment->status = $status;
