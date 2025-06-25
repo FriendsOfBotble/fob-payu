@@ -145,6 +145,9 @@ class PayUService
             ];
         }
 
-        return $response->json();
+        return $response->json() ?: [
+            'error' => false,
+            'message' => $response->reason() ?: 'Unknown error',
+        ];
     }
 }
