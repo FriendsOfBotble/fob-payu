@@ -22,8 +22,8 @@ class PayUService
 
     public function __construct()
     {
-        $this->merchantKey = get_payment_setting('merchant_key', PayUServiceProvider::MODULE_NAME);
-        $this->saltKey = get_payment_setting('salt_key', PayUServiceProvider::MODULE_NAME);
+        $this->merchantKey = (string) get_payment_setting('merchant_key', PayUServiceProvider::MODULE_NAME);
+        $this->saltKey = (string) get_payment_setting('salt_key', PayUServiceProvider::MODULE_NAME);
     }
 
     public function withData(array $data): self
@@ -54,8 +54,8 @@ class PayUService
         ]);
 
         return [
-            'error' => isset($data['status']) && $data['status'] != 1,
-            'message' => $data['msg'] ?? null,
+            'error' => ($data['status'] ?? 0) != 1,
+            'message' => $data['msg'] ?? $data['message'] ?? null,
         ];
     }
 
@@ -66,10 +66,61 @@ class PayUService
         ]);
 
         return [
-            'error' => isset($data['status']) && $data['status'] != 1,
-            'message' => $data['msg'] ?? null,
+            'error' => ($data['status'] ?? 0) != 1,
+            'message' => $data['msg'] ?? $data['message'] ?? null,
             'data' => $data['transaction_details'] ?? [],
         ];
+    }
+
+    /**
+     * Verify the reverse hash PayU posts back to surl/furl, so the status, amount and udf1
+     * (order metadata) of a callback can't be forged.
+     */
+    public function verifyResponseHash(array $data): bool
+    {
+        $postedHash = (string) Arr::get($data, 'hash');
+
+        if (! $postedHash || ! $this->getMerchantKey() || ! $this->getSaltKey()) {
+            return false;
+        }
+
+        // PayU may send udf1 back HTML-encoded, so accept the hash of either form.
+        $udf1Candidates = array_unique([
+            (string) Arr::get($data, 'udf1'),
+            html_entity_decode((string) Arr::get($data, 'udf1')),
+        ]);
+
+        foreach ($udf1Candidates as $udf1) {
+            $udfs = [];
+
+            for ($i = 10; $i >= 2; $i--) {
+                $udfs[] = (string) Arr::get($data, "udf$i");
+            }
+
+            $udfs[] = $udf1;
+
+            $hashString = implode('|', [
+                $this->getSaltKey(),
+                (string) Arr::get($data, 'status'),
+                ...$udfs,
+                (string) Arr::get($data, 'email'),
+                (string) Arr::get($data, 'firstname'),
+                (string) Arr::get($data, 'productinfo'),
+                (string) Arr::get($data, 'amount'),
+                (string) Arr::get($data, 'txnid'),
+                $this->getMerchantKey(),
+            ]);
+
+            if ($additionalCharges = Arr::get($data, 'additionalCharges')) {
+                $hashString = $additionalCharges . '|' . $hashString;
+            }
+
+            if (hash_equals(hash('sha512', $hashString), strtolower($postedHash))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function transactionId(): string
@@ -132,7 +183,7 @@ class PayUService
 
     protected function sendPostService(string $command, array $vars = []): array
     {
-        $response = Http::withoutVerifying()->asForm()->post($this->getPostServiceUrl(), array_merge([
+        $response = Http::asForm()->post($this->getPostServiceUrl(), array_merge([
             'key' => $this->getMerchantKey(),
             'command' => $command,
             'hash' => $this->getPostServiceHash($command, $vars),
