@@ -111,7 +111,7 @@ class PayUService
                 $this->getMerchantKey(),
             ]);
 
-            if ($additionalCharges = Arr::get($data, 'additionalCharges')) {
+            if ($additionalCharges = Arr::get($data, 'additionalCharges') ?: Arr::get($data, 'additional_charges')) {
                 $hashString = $additionalCharges . '|' . $hashString;
             }
 
