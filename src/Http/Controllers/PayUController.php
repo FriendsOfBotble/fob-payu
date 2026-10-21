@@ -6,6 +6,7 @@ use Botble\Base\Http\Controllers\BaseController;
 use Botble\Base\Http\Responses\BaseHttpResponse;
 use Botble\Hotel\Models\Booking;
 use Botble\Payment\Enums\PaymentStatusEnum;
+use Botble\Payment\Models\Payment;
 use Botble\Payment\Repositories\Interfaces\PaymentInterface;
 use Botble\Payment\Supports\PaymentHelper;
 use FriendsOfBotble\PayU\Providers\PayUServiceProvider;
@@ -15,9 +16,23 @@ use Illuminate\Support\Arr;
 
 class PayUController extends BaseController
 {
-    public function callback(Request $request, BaseHttpResponse $response): BaseHttpResponse
+    public function callback(Request $request, BaseHttpResponse $response, PayUService $payUService): BaseHttpResponse
     {
-        $metadata = json_decode(html_entity_decode($request->input('udf1')), true);
+        if (! $payUService->verifyResponseHash($request->input())) {
+            return $response
+                ->setError()
+                ->setNextUrl(PaymentHelper::getCancelURL())
+                ->setMessage(__('Invalid payment response.'));
+        }
+
+        $metadata = json_decode(html_entity_decode((string) $request->input('udf1')), true);
+
+        if (! is_array($metadata) || ! isset($metadata['order_id'], $metadata['token'])) {
+            return $response
+                ->setError()
+                ->setNextUrl(PaymentHelper::getCancelURL())
+                ->setMessage(__('Invalid payment response.'));
+        }
 
         $status = match ($request->input('status')) {
             'success' => PaymentStatusEnum::COMPLETED,
@@ -32,17 +47,25 @@ class PayUController extends BaseController
                 ->setMessage($request->input('error_message'));
         }
 
-        do_action(PAYMENT_ACTION_PAYMENT_PROCESSED, [
-            'order_id' => $metadata['order_id'],
-            'currency' => $metadata['currency'],
-            'amount' => $request->input('amount'),
-            'charge_id' => $request->input('mihpayid'),
-            'payment_channel' => PayUServiceProvider::MODULE_NAME,
-            'status' => $status,
-            'customer_id' => $metadata['customer_id'],
-            'customer_type' => $metadata['customer_type'],
-            'payment_type' => 'direct',
-        ], $request);
+        $alreadyCompleted = Payment::query()
+            ->where('charge_id', $request->input('mihpayid'))
+            ->where('status', PaymentStatusEnum::COMPLETED)
+            ->exists();
+
+        // A replayed callback must not process the same PayU transaction twice.
+        if (! $alreadyCompleted) {
+            do_action(PAYMENT_ACTION_PAYMENT_PROCESSED, [
+                'order_id' => $metadata['order_id'],
+                'currency' => $metadata['currency'],
+                'amount' => $request->input('amount'),
+                'charge_id' => $request->input('mihpayid'),
+                'payment_channel' => PayUServiceProvider::MODULE_NAME,
+                'status' => $status,
+                'customer_id' => $metadata['customer_id'],
+                'customer_type' => $metadata['customer_type'],
+                'payment_type' => 'direct',
+            ], $request);
+        }
 
         if (is_plugin_active('hotel')) {
             $booking = Booking::query()
@@ -91,7 +114,7 @@ class PayUController extends BaseController
             return;
         }
 
-        $status = match ($response['data']['status']) {
+        $status = match (Arr::get($response, 'data.status')) {
             'success' => PaymentStatusEnum::COMPLETED,
             'failure' => PaymentStatusEnum::FAILED,
             default => PaymentStatusEnum::PENDING,
